@@ -46,4 +46,12 @@ export default defineConfig([
     plugins: { js },
     extends: ['js/recommended'],
   },
+  {
+    files: ['**/*.{test,spec}.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
+  },
 ]);
+

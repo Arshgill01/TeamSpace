@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import type { ClaimState, ShiftLog, ActiveMod } from '../shared/schema.js';
 import './styles.css';
 
@@ -15,9 +15,9 @@ export function App({ subreddit, username }: { subreddit: string; username: stri
   const [category, setCategory] = useState<'handover' | 'alert' | 'general'>('general');
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
     // Poll every 15 seconds to keep dashboard updated in real-time
-    const interval = setInterval(fetchData, 15000);
+    const interval = setInterval(() => { void fetchData(); }, 15000);
     return () => clearInterval(interval);
   }, [activeTab, subreddit]);
 
@@ -39,14 +39,14 @@ export function App({ subreddit, username }: { subreddit: string; username: stri
         if (!res.ok) throw new Error('Failed to fetch active roster');
         setRoster(await res.json());
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred while fetching data.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred while fetching data.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePostNote = async (e: React.FormEvent) => {
+  const handlePostNote = async (e: FormEvent) => {
     e.preventDefault();
     if (!newNote.trim()) return;
 
@@ -62,9 +62,9 @@ export function App({ subreddit, username }: { subreddit: string; username: stri
       if (!res.ok) throw new Error('Failed to post shift note');
 
       setNewNote('');
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit shift note.');
+      void fetchData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit shift note.');
     }
   };
 
@@ -75,9 +75,9 @@ export function App({ subreddit, username }: { subreddit: string; username: stri
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to release claim');
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to release claim.');
+      void fetchData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to release claim.');
     }
   };
 
@@ -159,7 +159,7 @@ export function App({ subreddit, username }: { subreddit: string; username: stri
           <form onSubmit={handlePostNote} style={{ marginBottom: '24px' }}>
             <div className="form-group">
               <label>Category</label>
-              <select value={category} onChange={e => setCategory(e.target.value as any)}>
+              <select value={category} onChange={e => setCategory(e.target.value as 'general' | 'handover' | 'alert')}>
                 <option value="general">General Note</option>
                 <option value="handover">Shift Handover</option>
                 <option value="alert">🚨 Action Alert</option>
