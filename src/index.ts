@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { createServer, getServerPort } from '@devvit/web/server';
+import { menu } from './routes/menu.js';
+import { triggers } from './routes/triggers.js';
 
 const app = new Hono();
 const api = new Hono();
@@ -14,6 +16,9 @@ api.get('/health', (c) => {
     timestamp: Date.now()
   });
 });
+
+internal.route('/menu', menu);
+internal.route('/triggers', triggers);
 
 app.route('/api', api);
 app.route('/internal', internal);
