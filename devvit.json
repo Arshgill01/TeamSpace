@@ -1,0 +1,49 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "teamspace",
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "index.html",
+        "height": "tall",
+        "inline": true
+      }
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Claim Post",
+        "description": "Claim post for review",
+        "location": "post",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/claim-post"
+      },
+      {
+        "label": "TeamSpace Dashboard",
+        "description": "Open mod workspace",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/open-dashboard"
+      }
+    ]
+  },
+  "triggers": {
+    "onModAction": "/internal/triggers/on-mod-action"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "permissions": {
+    "reddit": true
+  },
+  "dev": {
+    "subreddit": "teamspace_dev"
+  }
+}
