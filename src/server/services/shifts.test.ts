@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ShiftsService } from './shifts.js';
-import type { RedisClient } from '@devvit/public-api';
+import type { RedisClient } from '@devvit/redis';
 
 describe('ShiftsService', () => {
   let mockRedis: any;
@@ -8,9 +8,9 @@ describe('ShiftsService', () => {
 
   beforeEach(() => {
     mockRedis = {
-      lPush: vi.fn(),
-      lTrim: vi.fn(),
-      lRange: vi.fn(),
+      zAdd: vi.fn(),
+      zRange: vi.fn(),
+      zRemRangeByRank: vi.fn(),
       hSet: vi.fn(),
       hGetAll: vi.fn(),
       hDel: vi.fn(),
@@ -19,14 +19,14 @@ describe('ShiftsService', () => {
   });
 
   it('pushes shift notes to circular buffer list', async () => {
-    mockRedis.lPush.mockResolvedValue(1);
-    mockRedis.lTrim.mockResolvedValue('OK');
+    mockRedis.zAdd.mockResolvedValue(1);
+    mockRedis.zRemRangeByRank.mockResolvedValue(0);
 
     const log = await service.logShiftNote('mod_a', 'Spam attack on sticky post', 'alert');
     expect(log.mod).toBe('mod_a');
     expect(log.category).toBe('alert');
-    expect(mockRedis.lPush).toHaveBeenCalled();
-    expect(mockRedis.lTrim).toHaveBeenCalledWith(expect.any(String), 0, 49);
+    expect(mockRedis.zAdd).toHaveBeenCalled();
+    expect(mockRedis.zRemRangeByRank).toHaveBeenCalledWith(expect.any(String), 0, -51);
   });
 
   it('records heartbeat and filters active roster correctly', async () => {
@@ -41,7 +41,7 @@ describe('ShiftsService', () => {
 
     const roster = await service.getActiveRoster();
     expect(roster.length).toBe(1);
-    expect(roster[0].username).toBe('mod_active');
+    expect(roster[0]?.username).toBe('mod_active');
     expect(mockRedis.hDel).toHaveBeenCalledWith(expect.any(String), ['mod_stale']);
   });
 });

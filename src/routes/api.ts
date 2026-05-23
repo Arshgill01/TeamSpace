@@ -4,6 +4,15 @@ import { ShiftsService } from '../server/services/shifts.js';
 
 export const api = new Hono();
 
+// Status/Health endpoint
+api.get('/health', (c) => {
+  return c.json({
+    status: 'ok',
+    app: 'teamspace',
+    timestamp: Date.now()
+  });
+});
+
 // Get active queue claims
 api.get('/claims', async (c) => {
   const subreddit = c.req.query('subreddit');
@@ -12,6 +21,17 @@ api.get('/claims', async (c) => {
   const claims = new ClaimsService(subreddit);
   const active = await claims.getActiveClaims();
   return c.json(active);
+});
+
+// Delete (release) a claim manually
+api.delete('/claims/:postId', async (c) => {
+  const subreddit = c.req.query('subreddit');
+  const postId = c.req.param('postId');
+  if (!subreddit) return c.json({ error: 'Subreddit name is required.' }, 400);
+
+  const claims = new ClaimsService(subreddit);
+  await claims.releaseClaim(postId);
+  return c.json({ success: true });
 });
 
 // Get shift logs

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ClaimsService } from './claims.js';
-import type { RedisClient } from '@devvit/public-api';
+import type { RedisClient } from '@devvit/redis';
 
 describe('ClaimsService', () => {
   let mockRedis: any;
@@ -11,9 +11,9 @@ describe('ClaimsService', () => {
       get: vi.fn(),
       set: vi.fn(),
       del: vi.fn(),
-      sAdd: vi.fn(),
-      sRem: vi.fn(),
-      sMembers: vi.fn(),
+      zAdd: vi.fn(),
+      zRem: vi.fn(),
+      zRange: vi.fn(),
     };
     service = new ClaimsService('testsub', mockRedis as unknown as RedisClient);
   });
@@ -24,7 +24,7 @@ describe('ClaimsService', () => {
     expect(res.success).toBe(true);
     expect(res.claim?.claimedBy).toBe('mod_a');
     expect(mockRedis.set).toHaveBeenCalled();
-    expect(mockRedis.sAdd).toHaveBeenCalledWith(expect.any(String), 'post1');
+    expect(mockRedis.zAdd).toHaveBeenCalledWith(expect.any(String), { member: 'post1', score: expect.any(Number) });
   });
 
   it('rejects claiming an already claimed post by another mod', async () => {
@@ -56,7 +56,7 @@ describe('ClaimsService', () => {
   it('releases a claim and updates the index', async () => {
     await service.releaseClaim('post1');
     expect(mockRedis.del).toHaveBeenCalled();
-    expect(mockRedis.sRem).toHaveBeenCalledWith(expect.any(String), 'post1');
+    expect(mockRedis.zRem).toHaveBeenCalledWith(expect.any(String), ['post1']);
   });
 
   it('retrieves active claims correctly', async () => {
@@ -73,7 +73,7 @@ describe('ClaimsService', () => {
       expiresAt: Date.now() + 600000,
     };
     
-    mockRedis.sMembers.mockResolvedValue(['postA', 'postB']);
+    mockRedis.zRange.mockResolvedValue([{ member: 'postA' }, { member: 'postB' }]);
     mockRedis.get.mockImplementation((key: string) => {
       if (key.includes('postA')) return Promise.resolve(JSON.stringify(claimA));
       if (key.includes('postB')) return Promise.resolve(JSON.stringify(claimB));
@@ -82,7 +82,7 @@ describe('ClaimsService', () => {
 
     const active = await service.getActiveClaims();
     expect(active.length).toBe(2);
-    expect(active[0].postId).toBe('postB');
-    expect(active[1].postId).toBe('postA');
+    expect(active[0]?.postId).toBe('postB');
+    expect(active[1]?.postId).toBe('postA');
   });
 });

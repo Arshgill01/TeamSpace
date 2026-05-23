@@ -1,5 +1,5 @@
 import { redis as devvitRedis } from '@devvit/web/server';
-import type { RedisClient } from '@devvit/public-api';
+import type { RedisClient } from '@devvit/redis';
 import { keys } from './redis.js';
 import type { ShiftLog, ActiveMod } from '../../shared/schema.js';
 
@@ -26,30 +26,32 @@ export class ShiftsService {
       category,
     };
 
-    // Store in a Redis list representing a circular buffer (capped at 50)
-    await this.redis.lPush(logsKey, JSON.stringify(log));
-    await this.redis.lTrim(logsKey, 0, 49);
+    // Store in a Sorted Set as a circular buffer (score = timestamp)
+    await this.redis.zAdd(logsKey, { member: JSON.stringify(log), score: log.timestamp });
+    // Keep only the 50 newest items: delete oldest from rank 0 to rank -51
+    await this.redis.zRemRangeByRank(logsKey, 0, -51);
 
     return log;
   }
 
   public async getShiftLogs(): Promise<ShiftLog[]> {
     const logsKey = keys.logs(this.subreddit);
-    const data = await this.redis.lRange(logsKey, 0, 49);
+    const members = await this.redis.zRange(logsKey, 0, -1);
     
-    return data.map((item) => {
+    // Parse and reverse to return newest first
+    return members.map((m) => {
       try {
-        return JSON.parse(item) as ShiftLog;
+        return JSON.parse(m.member) as ShiftLog;
       } catch (e) {
         return {
           id: 'corrupted',
           timestamp: Date.now(),
           mod: 'system',
           message: 'Failed to parse shift note.',
-          category: 'general',
+          category: 'general' as const,
         };
       }
-    });
+    }).reverse();
   }
 
   public async recordModHeartbeat(username: string): Promise<void> {

@@ -1,5 +1,5 @@
 import { redis as devvitRedis } from '@devvit/web/server';
-import type { RedisClient } from '@devvit/public-api';
+import type { RedisClient } from '@devvit/redis';
 import { keys } from './redis.js';
 import type { ClaimState } from '../../shared/schema.js';
 
@@ -43,8 +43,8 @@ export class ClaimsService {
       expiration: new Date(expiresAt),
     });
 
-    // Add to active claims index
-    await this.redis.sAdd(keys.claimsIndex(this.subreddit), postId);
+    // Add to active claims index (score = expiresAt)
+    await this.redis.zAdd(keys.claimsIndex(this.subreddit), { member: postId, score: expiresAt });
 
     return { success: true, claim };
   }
@@ -54,7 +54,7 @@ export class ClaimsService {
     const data = await this.redis.get(key);
     if (!data) {
       // Clean up index if no claim details exist
-      await this.redis.sRem(keys.claimsIndex(this.subreddit), postId);
+      await this.redis.zRem(keys.claimsIndex(this.subreddit), [postId]);
       return null;
     }
 
@@ -62,7 +62,7 @@ export class ClaimsService {
       const claim = JSON.parse(data) as ClaimState;
       if (claim.expiresAt <= Date.now()) {
         await this.redis.del(key);
-        await this.redis.sRem(keys.claimsIndex(this.subreddit), postId);
+        await this.redis.zRem(keys.claimsIndex(this.subreddit), [postId]);
         return null;
       }
       return claim;
@@ -74,16 +74,16 @@ export class ClaimsService {
   public async releaseClaim(postId: string): Promise<void> {
     const key = keys.claim(this.subreddit, postId);
     await this.redis.del(key);
-    await this.redis.sRem(keys.claimsIndex(this.subreddit), postId);
+    await this.redis.zRem(keys.claimsIndex(this.subreddit), [postId]);
   }
 
   public async getActiveClaims(): Promise<ClaimState[]> {
     const indexKey = keys.claimsIndex(this.subreddit);
-    const postIds = await this.redis.sMembers(indexKey);
+    const members = await this.redis.zRange(indexKey, 0, -1);
     const activeClaims: ClaimState[] = [];
 
-    for (const postId of postIds) {
-      const claim = await this.getClaim(postId);
+    for (const m of members) {
+      const claim = await this.getClaim(m.member);
       if (claim) {
         activeClaims.push(claim);
       }
